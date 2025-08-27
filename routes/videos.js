@@ -8,21 +8,54 @@ const router = express.Router();
 // Process existing video (CPU intensive test)
 router.post('/process-test', async (req, res) => {
   try {
-    const videoPath = path.join(__dirname, '../videos/video.mov');
-    console.log('Starting CPU intensive processing...');
+    const fs = require('fs');
+    const uploadsDir = path.join(__dirname, '../uploads');
     
+    // Find the first video file in uploads directory
+    let videoPath = null;
+    let videoName = null;
+    
+    if (fs.existsSync(uploadsDir)) {
+      const files = fs.readdirSync(uploadsDir);
+      const videoFile = files.find(file => 
+        file.toLowerCase().match(/\.(mov|mp4|avi|mkv|webm)$/i)
+      );
+      
+      if (videoFile) {
+        videoPath = path.join(uploadsDir, videoFile);
+        videoName = videoFile;
+      }
+    }
+    
+    if (!videoPath || !fs.existsSync(videoPath)) {
+      return res.status(400).json({
+        success: false,
+        error: 'No video file found',
+        message: 'Please upload a video file first before running CPU test'
+      });
+    }
+    
+    console.log('Starting CPU intensive processing...');
+    console.log(`📁 Using video file: ${videoName} (${Math.round(fs.statSync(videoPath).size / 1024 / 1024)} MB)`);
+    console.log(`📂 Full path: ${videoPath}`);
+    
+    // Start processing (don't await to return immediately)
     videoProcessor.processVideoCompleteMultiQuality(
       videoPath,
-      'video.mov',
+      videoName,
       ['1080p', '720p', '480p', '360p']
-    ).catch(error => {
-      console.error('Processing failed:', error);
+    ).then(result => {
+      console.log('✅ Video processing completed successfully!', result);
+    }).catch(error => {
+      console.error('❌ Video processing failed:', error);
     });
 
     res.json({
       success: true,
       message: 'Processing started. Check CPU usage.',
-      note: 'This will take 5-15 minutes for high CPU load'
+      note: 'This will take 5-15 minutes for high CPU load',
+      videoFile: videoName,
+      videoSize: Math.round(fs.statSync(videoPath).size / 1024 / 1024) + ' MB'
     });
   } catch (error) {
     console.error('Error:', error);
@@ -121,4 +154,5 @@ router.get('/performance', requireAuth, (req, res) => {
 });
 
 module.exports = router;
+
 
