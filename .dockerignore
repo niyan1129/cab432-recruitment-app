@@ -1,0 +1,46 @@
+# Node modules
+node_modules
+npm-debug.log*
+
+# Environment files
+.env
+config.env
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+LOCAL_TESTING.md
+*.md
+
+# IDE files
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp
+temp
+
+# Large uploaded files (will be created at runtime)
+uploads/*.MOV
+uploads/*.mp4
+uploads/*.avi
+uploads/*.mov
+
+# Test files
+test
+tests
+*.test.js
+
+# Coverage reports
+coverage

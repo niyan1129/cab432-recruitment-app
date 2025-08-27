@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruitment Video System | CAB432 Assignment</title>
+    <!-- External CSS Libraries -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="fas fa-video me-2"></i>Video Recruitment System</a>
+            <div class="navbar-nav ms-auto">
+                <span id="userInfo" class="navbar-text me-3"></span>
+                <button id="logoutBtn" class="btn logout-btn hidden">
+                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Login Section -->
+        <div id="loginSection" class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header text-center">
+                        <h3><i class="fas fa-sign-in-alt me-2"></i>Login System</h3>
+                        <p class="mb-0">CAB432 Assignment Demo</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <strong>Demo Accounts:</strong><br>
+                            Candidate: candidate / 123456<br>
+                            HR: hr / 123456
+                        </div>
+                        
+                        <form id="loginForm">
+                            <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" id="loginUsername" class="form-control" placeholder="candidate or hr" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" id="loginPassword" class="form-control" placeholder="123456" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-sign-in-alt me-1"></i>Login
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Candidate Dashboard -->
+        <div id="candidateSection" class="hidden">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3><i class="fas fa-user me-2"></i>Candidate Dashboard</h3>
+                            <button class="btn btn-danger btn-sm" onclick="logout()">
+                                <i class="fas fa-sign-out-alt me-1"></i>Logout
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- Profile Form -->
+                            <div id="profileSection">
+                                <h5><i class="fas fa-id-card me-2"></i>Personal Information</h5>
+                                <form id="profileForm" class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Full Name</label>
+                                        <input type="text" id="fullName" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Phone</label>
+                                        <input type="tel" id="phone" class="form-control" required>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fas fa-save me-1"></i>Save Profile
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <!-- Video Upload -->
+                            <div id="videoSection">
+                                <h5><i class="fas fa-video me-2"></i>Video Upload (CPU Intensive Process)</h5>
+                                <div class="alert alert-warning">
+                                    <strong>CAB432 Demo:</strong><br>
+                                    • Upload a 5-10 minute video for best CPU load demonstration<br>
+                                    • System will generate multiple quality versions (80%+ CPU usage for 5-15 minutes)<br>
+                                    • Monitor Task Manager during processing
+                                </div>
+                                
+                                <form id="videoUploadForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Select Video File</label>
+                                        <input type="file" id="videoFile" class="form-control" accept="video/*" required>
+                                        <small class="form-text text-muted">Supports MP4, AVI, MOV, WebM. Max 2GB</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Quality Settings (More qualities = Longer CPU processing)</label>
+                                        <div class="row">
+
+                                            <div class="col-md-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="quality720p" value="720p" checked>
+                                                    <label class="form-check-label" for="quality720p">720p</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="quality480p" value="480p" checked>
+                                                    <label class="form-check-label" for="quality480p">480p</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="quality360p" value="360p" checked>
+                                                    <label class="form-check-label" for="quality360p">360p</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-upload me-1"></i>Upload & Process (CPU Intensive)
+                                    </button>
+                                </form>
+                                
+                                <!-- Video Status -->
+                                <div id="videoStatus" class="mt-4 hidden">
+                                    <h6>Processing Status</h6>
+                                    <div id="statusContent"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HR Dashboard -->
+        <div id="hrSection" class="hidden">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3><i class="fas fa-user-tie me-2"></i>HR Dashboard</h3>
+                            <button class="btn btn-danger btn-sm" onclick="logout()">
+                                <i class="fas fa-sign-out-alt me-1"></i>Logout
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <!-- Search -->
+                            <div class="row mb-4">
+                                <div class="col-md-8">
+                                    <input type="text" id="searchCandidates" class="form-control" placeholder="Search candidates...">
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-info w-100" onclick="loadCandidates()">
+                                        <i class="fas fa-search me-1"></i>Load Candidates
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Candidates List -->
+                            <div id="candidatesList">
+                                <div class="text-center">
+                                    <button class="btn btn-primary" onclick="loadCandidates()">
+                                        <i class="fas fa-users me-1"></i>Load Candidates List
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Candidate Detail Modal -->
+            <div class="modal fade" id="candidateModal" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-user me-2"></i>Candidate Details</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="candidateDetail"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>

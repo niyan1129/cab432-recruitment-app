@@ -1,0 +1,172 @@
+### 招聘视频上传系统 API 测试示例
+### Base URL: http://localhost:3000/api
+
+### 1. 初始化默认用户
+POST http://localhost:3000/api/auth/init-users
+Content-Type: application/json
+
+### 2. 候选人登录
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "candidate@demo.com",
+  "password": "123456"
+}
+
+### 3. HR登录
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "hr@demo.com",
+  "password": "123456"
+}
+
+### 4. 获取当前用户信息 (需要JWT token)
+GET http://localhost:3000/api/auth/me
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### 5. 候选人创建个人信息 (需要candidate token)
+POST http://localhost:3000/api/candidates/profile
+Authorization: Bearer CANDIDATE_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "fullName": "张三",
+  "phone": "+86 138-0013-8000",
+  "email": "zhangsan@example.com",
+  "notes": "我是一名有5年经验的前端开发工程师"
+}
+
+### 6. 候选人上传视频 (需要candidate token + multipart/form-data)
+POST http://localhost:3000/api/candidates/upload-video
+Authorization: Bearer CANDIDATE_JWT_TOKEN
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="video"; filename="resume_video.mp4"
+Content-Type: video/mp4
+
+[Binary video file content]
+------WebKitFormBoundary
+Content-Disposition: form-data; name="qualities"
+
+["1080p", "720p", "480p"]
+------WebKitFormBoundary--
+
+### 6.1 候选人上传视频 (CAB432作业演示 - 持续5+分钟CPU负载)
+POST http://localhost:3000/api/candidates/upload-video
+Authorization: Bearer CANDIDATE_JWT_TOKEN
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="video"; filename="long_video_5_minutes.mp4"
+Content-Type: video/mp4
+
+[Binary video file content - 建议5-10分钟视频]
+------WebKitFormBoundary
+Content-Disposition: form-data; name="qualities"
+
+["1080p", "720p", "480p", "360p"]
+------WebKitFormBoundary--
+
+### 6.2 候选人上传视频 (默认设置 - 自动选择4个质量)
+POST http://localhost:3000/api/candidates/upload-video
+Authorization: Bearer CANDIDATE_JWT_TOKEN
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="video"; filename="resume_video.mp4"
+Content-Type: video/mp4
+
+[Binary video file content]
+------WebKitFormBoundary--
+
+### 7. 查看视频处理状态
+GET http://localhost:3000/api/candidates/video-status
+Authorization: Bearer CANDIDATE_JWT_TOKEN
+
+### 8. 提交申请
+POST http://localhost:3000/api/candidates/submit-application
+Authorization: Bearer CANDIDATE_JWT_TOKEN
+
+### 9. HR查看候选人列表
+GET http://localhost:3000/api/hr/candidates
+Authorization: Bearer HR_JWT_TOKEN
+
+### 10. HR查看候选人详情
+GET http://localhost:3000/api/hr/candidates/CANDIDATE_ID
+Authorization: Bearer HR_JWT_TOKEN
+
+### 11. HR查看候选人可用视频质量
+GET http://localhost:3000/api/hr/candidates/CANDIDATE_ID/video-qualities
+Authorization: Bearer HR_JWT_TOKEN
+
+### 11.1 HR观看候选人视频 (默认最高质量)
+GET http://localhost:3000/api/hr/candidates/CANDIDATE_ID/video
+Authorization: Bearer HR_JWT_TOKEN
+
+### 11.2 HR观看候选人视频 (指定质量)
+GET http://localhost:3000/api/hr/candidates/CANDIDATE_ID/video?quality=720p
+Authorization: Bearer HR_JWT_TOKEN
+
+### 11.3 HR观看候选人视频 (1080p高质量)
+GET http://localhost:3000/api/hr/candidates/CANDIDATE_ID/video?quality=1080p
+Authorization: Bearer HR_JWT_TOKEN
+
+### 11.4 HR观看候选人视频 (480p节省带宽)
+GET http://localhost:3000/api/hr/candidates/CANDIDATE_ID/video?quality=480p
+Authorization: Bearer HR_JWT_TOKEN
+
+### 12. HR查看视频缩略图
+GET http://localhost:3000/api/hr/candidates/CANDIDATE_ID/thumbnail
+Authorization: Bearer HR_JWT_TOKEN
+
+### 13. HR添加评分和评论
+POST http://localhost:3000/api/hr/candidates/CANDIDATE_ID/review
+Authorization: Bearer HR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "rating": 4,
+  "comments": "候选人表现不错，技术能力较强，沟通能力良好"
+}
+
+### 14. CPU密集型压力测试 (演示服务器负载)
+GET http://localhost:3000/api/videos/stress-test?complexity=2000000
+Authorization: Bearer ANY_JWT_TOKEN
+
+### 15. 模拟CPU负载
+POST http://localhost:3000/api/videos/simulate-load
+Authorization: Bearer ANY_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "duration": 5000,
+  "intensity": "high"
+}
+
+### 16. 获取服务器性能指标
+GET http://localhost:3000/api/videos/performance
+Authorization: Bearer ANY_JWT_TOKEN
+
+### 17. 获取视频处理能力信息
+GET http://localhost:3000/api/videos/processing-info
+Authorization: Bearer ANY_JWT_TOKEN
+
+### 18. 服务器健康检查
+GET http://localhost:3000/api/health
+
+### 19. HR仪表板统计数据
+GET http://localhost:3000/api/hr/dashboard/stats
+Authorization: Bearer HR_JWT_TOKEN
+
+### 20. 更新候选人申请状态
+PUT http://localhost:3000/api/hr/candidates/CANDIDATE_ID/status
+Authorization: Bearer HR_JWT_TOKEN
+Content-Type: application/json
+
+{
+  "status": "interview"
+}

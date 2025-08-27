@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongo:27017/recruitment_app
+      - JWT_SECRET=your-jwt-secret-key-change-in-production
+      - PORT=3000
+      - UPLOAD_PATH=./uploads
+      - MAX_FILE_SIZE=2147483648
+    volumes:
+      - uploads:/usr/src/app/uploads
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  uploads:
+  mongo_data:
