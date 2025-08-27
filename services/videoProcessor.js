@@ -5,21 +5,30 @@ const path = require('path');
 const fs = require('fs').promises;
 const sharp = require('sharp');
 
-// Set FFmpeg and FFprobe paths - use static binaries for local development
-if (process.env.FFMPEG_PATH) {
-  ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH);
-} else if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic);
-}
+// Set FFmpeg and FFprobe paths - handle both Docker and local environments
+if (process.env.NODE_ENV === 'production' || process.env.DOCKER_ENV) {
+  // In Docker container, use system-installed FFmpeg
+  ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
+  ffmpeg.setFfprobePath('/usr/bin/ffprobe');
+  console.log('🔧 FFmpeg path: /usr/bin/ffmpeg (Docker system)');
+  console.log('🔧 FFprobe path: /usr/bin/ffprobe (Docker system)');
+} else {
+  // Local development, use static binaries
+  if (process.env.FFMPEG_PATH) {
+    ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH);
+  } else if (ffmpegStatic) {
+    ffmpeg.setFfmpegPath(ffmpegStatic);
+  }
 
-if (process.env.FFPROBE_PATH) {
-  ffmpeg.setFfprobePath(process.env.FFPROBE_PATH);
-} else if (ffprobeStatic.path) {
-  ffmpeg.setFfprobePath(ffprobeStatic.path);
+  if (process.env.FFPROBE_PATH) {
+    ffmpeg.setFfprobePath(process.env.FFPROBE_PATH);
+  } else if (ffprobeStatic.path) {
+    ffmpeg.setFfprobePath(ffprobeStatic.path);
+  }
+  
+  console.log('🔧 FFmpeg path:', ffmpegStatic || 'system default');
+  console.log('🔧 FFprobe path:', ffprobeStatic.path || 'system default');
 }
-
-console.log('🔧 FFmpeg path:', ffmpegStatic || 'system default');
-console.log('🔧 FFprobe path:', ffprobeStatic.path || 'system default');
 
 class VideoProcessor {
   constructor() {

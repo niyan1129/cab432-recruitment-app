@@ -135,14 +135,10 @@ router.post('/upload-video', requireCandidate, uploadVideo, async (req, res) => 
       originalName: req.file.originalname,
       size: req.file.size,
       mimeType: req.file.mimetype,
-      isProcessed: true, // Mark as processed for display
-      processingStatus: 'completed',
-      requestedQualities: ['720p', '480p', '360p'],
-      qualities: [
-        { name: '720p', resolution: '1280x720', filePath: 'dummy', isReady: true },
-        { name: '480p', resolution: '854x480', filePath: 'dummy', isReady: true },
-        { name: '360p', resolution: '640x360', filePath: 'dummy', isReady: true }
-      ]
+      isProcessed: false,
+      processingStatus: 'pending',
+      requestedQualities: ['720p', '480p', '360p'], // For sustained CPU load
+      qualities: []
     };
 
     await candidate.save();
@@ -159,44 +155,31 @@ router.post('/upload-video', requireCandidate, uploadVideo, async (req, res) => 
       req.file.originalname,
       ['720p', '480p', '360p']
     ).then(async (result) => {
-      console.log('✅ Video processing completed successfully!', result);
+      console.log('✅ Video processing completed successfully!');
       
       // Update candidate with processed video information
       try {
         candidate.video.processingStatus = 'completed';
-        
-        // Use actual file paths from processing result
-        if (result.success && result.processedVideos) {
-          candidate.video.qualities = result.processedVideos.map(video => ({
-            name: video.quality,
-            resolution: video.resolution,
-            filePath: video.outputPath,
+        candidate.video.qualities = [
+          {
+            name: '720p',
+            resolution: '1280x720',
+            filePath: `processed/${videoFileName}_720p.mp4`,
             isReady: true
-          }));
-        } else {
-          // Fallback to expected paths if result doesn't have processedVideos
-          candidate.video.qualities = [
-            {
-              name: '720p',
-              resolution: '1280x720',
-              filePath: path.join('uploads', 'processed', `${videoFileName}_720p.mp4`),
-              isReady: true
-            },
-            {
-              name: '480p',
-              resolution: '854x480',
-              filePath: path.join('uploads', 'processed', `${videoFileName}_480p.mp4`),
-              isReady: true
-            },
-            {
-              name: '360p',
-              resolution: '640x360',
-              filePath: path.join('uploads', 'processed', `${videoFileName}_360p.mp4`),
-              isReady: true
-            }
-          ];
-        }
-        
+          },
+          {
+            name: '480p',
+            resolution: '854x480',
+            filePath: `processed/${videoFileName}_480p.mp4`,
+            isReady: true
+          },
+          {
+            name: '360p',
+            resolution: '640x360',
+            filePath: `processed/${videoFileName}_360p.mp4`,
+            isReady: true
+          }
+        ];
         candidate.video.completedAt = new Date();
         await candidate.save();
         
