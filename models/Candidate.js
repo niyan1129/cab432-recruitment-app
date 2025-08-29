@@ -14,9 +14,15 @@ const candidateSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
-    match: [/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number']
+    validate: {
+      validator: function(v) {
+        // Only validate format if phone is provided
+        return !v || /^[\+]?[1-9][\d]{0,15}$/.test(v);
+      },
+      message: 'Please enter a valid phone number'
+    }
   },
 
   video: {

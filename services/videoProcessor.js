@@ -286,18 +286,21 @@ class VideoProcessor {
    * This extracts a frame and processes it into a thumbnail
    */
   async generateThumbnail(videoPath, thumbnailFilename) {
-    return new Promise((resolve, reject) => {
-      const thumbnailPath = path.join(this.thumbnailDir, thumbnailFilename);
-      const tempImagePath = thumbnailPath.replace('.jpg', '_temp.png');
-      
-      // 确保视频路径中的空格被正确处理
-      const sanitizedVideoPath = videoPath.replace(/ /g, '\\ ');
-      
-      console.log(`🖼️ Starting CPU intensive thumbnail generation: ${sanitizedVideoPath}`);
-      const startTime = Date.now();
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Ensure thumbnail directory exists
+        await fs.mkdir(this.thumbnailDir, { recursive: true });
+        
+        const thumbnailPath = path.join(this.thumbnailDir, thumbnailFilename);
+        const tempImagePath = thumbnailPath.replace('.jpg', '_temp.png');
+        
+        console.log(`🖼️ Starting CPU intensive thumbnail generation: ${videoPath}`);
+        console.log(`🖼️ Thumbnail will be saved to: ${thumbnailPath}`);
+        const startTime = Date.now();
 
       // First, extract frame from video (CPU intensive)
-      ffmpeg(sanitizedVideoPath)
+      // FFmpeg should handle the path directly without manual escaping
+      ffmpeg(videoPath)
         .screenshots({
           timestamps: ['00:00:02'],  // Extract frame at 2 seconds
           filename: path.basename(tempImagePath),
@@ -325,7 +328,7 @@ class VideoProcessor {
             console.log(`✅ Thumbnail generation completed in ${duration}ms`);
             
             resolve({
-              thumbnailPath,
+              thumbnailPath: path.resolve(thumbnailPath), // Return absolute path
               processingTime: duration,
               success: true
             });
@@ -348,6 +351,13 @@ class VideoProcessor {
             success: false
           });
         });
+      } catch (initError) {
+        console.error(`❌ Thumbnail initialization failed:`, initError.message);
+        reject({
+          error: initError.message,
+          success: false
+        });
+      }
     });
   }
 

@@ -12,21 +12,22 @@ router.post('/profile', requireCandidate, async (req, res) => {
     const { fullName, phone } = req.body;
     const userId = req.user._id;
 
-    // Validation
-    if (!fullName || !phone) {
+    // Validation - only fullName is required, phone is optional
+    if (!fullName) {
       return res.status(400).json({
         error: 'Missing required fields',
-        required: ['fullName', 'phone']
+        required: ['fullName']
       });
     }
 
-    // Check if candidate profile already exists
+    // Check if candidate profile already exists for this user
     let candidate = await Candidate.findOne({ user: userId });
 
     if (candidate) {
       // Update existing profile
       candidate.fullName = fullName;
       candidate.phone = phone;
+      candidate.applicationStatus = 'submitted';
       
       await candidate.save();
       
@@ -37,27 +38,30 @@ router.post('/profile', requireCandidate, async (req, res) => {
           id: candidate._id,
           fullName: candidate.fullName,
           phone: candidate.phone,
-          hasVideo: !!candidate.video?.originalPath
+          hasVideo: !!candidate.video?.originalPath,
+          applicationStatus: candidate.applicationStatus
         }
       });
     } else {
-      // Create new profile
+      // Create new profile for this user
       candidate = new Candidate({
         user: userId,
         fullName,
-        phone
+        phone,
+        applicationStatus: 'submitted'
       });
 
       await candidate.save();
 
-      res.json({
+      res.status(201).json({
         success: true,
         message: 'Profile created successfully',
         candidate: {
           id: candidate._id,
           fullName: candidate.fullName,
           phone: candidate.phone,
-          hasVideo: false
+          hasVideo: false,
+          applicationStatus: candidate.applicationStatus
         }
       });
     }
@@ -150,40 +154,62 @@ router.post('/upload-video', requireCandidate, uploadVideo, async (req, res) => 
     const videoFileName = req.file.filename;
     const baseFileName = req.file.originalname;
     
+    // Remove file extension to avoid duplication (e.g., "video.mp4" -> "video")
+    const baseNameWithoutExt = baseFileName.replace(/\.[^/.]+$/, '');
+    
     videoProcessor.processVideoCompleteMultiQuality(
       req.file.path,
-      req.file.originalname,
+      baseNameWithoutExt,
       ['720p', '480p', '360p']
     ).then(async (result) => {
       console.log('✅ Video processing completed successfully!');
+      console.log('📊 Processing result:', result);
       
-      // Update candidate with processed video information
+              // Update candidate with processed video information
       try {
         candidate.video.processingStatus = 'completed';
-        candidate.video.qualities = [
-          {
-            name: '720p',
-            resolution: '1280x720',
-            filePath: `processed/${videoFileName}_720p.mp4`,
+        candidate.video.isProcessed = true;
+        
+        // Save video duration from processing result
+        if (result.originalInfo && result.originalInfo.duration) {
+          candidate.video.duration = result.originalInfo.duration;
+          console.log(`⏱️ Saved video duration: ${result.originalInfo.duration} seconds`);
+        }
+        
+        // Save total processing time
+        if (result.totalProcessingTime) {
+          candidate.video.totalProcessingTime = result.totalProcessingTime;
+          console.log(`⏱️ Total processing time: ${result.totalProcessingTime}ms`);
+        }
+        
+        // Use actual generated file paths from the processing result
+        const qualityMap = {
+          '1280x720': '720p',
+          '854x480': '480p',
+          '640x360': '360p'
+        };
+        
+        candidate.video.qualities = result.qualities.map(qualityResult => {
+          const qualityName = qualityMap[qualityResult.quality] || qualityResult.quality;
+          return {
+            name: qualityName,
+            resolution: qualityResult.quality,
+            filePath: qualityResult.outputPath.replace(/^.*[\\\/]/, ''), // Get just filename
             isReady: true
-          },
-          {
-            name: '480p',
-            resolution: '854x480',
-            filePath: `processed/${videoFileName}_480p.mp4`,
-            isReady: true
-          },
-          {
-            name: '360p',
-            resolution: '640x360',
-            filePath: `processed/${videoFileName}_360p.mp4`,
-            isReady: true
-          }
-        ];
+          };
+        });
+        
+        // Save thumbnail path
+        if (result.thumbnailPath) {
+          candidate.video.thumbnailPath = result.thumbnailPath;
+          console.log(`🖼️ Saved thumbnail path: ${result.thumbnailPath}`);
+        }
+        
         candidate.video.completedAt = new Date();
         await candidate.save();
         
         console.log(`📋 Updated candidate ${candidate.fullName} with completed video processing`);
+        console.log(`📁 Qualities:`, candidate.video.qualities);
       } catch (error) {
         console.error('❌ Failed to update candidate with video status:', error);
       }
@@ -200,7 +226,7 @@ router.post('/upload-video', requireCandidate, uploadVideo, async (req, res) => 
       }
     });
 
-    res.json({
+    res.status(201).json({
       success: true,
       message: 'Video uploaded successfully! Processing started with SUSTAINED CPU load.',
       video: {

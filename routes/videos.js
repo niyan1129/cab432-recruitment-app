@@ -153,6 +153,57 @@ router.get('/performance', requireAuth, (req, res) => {
   }
 });
 
+// Test thumbnail generation
+router.post('/test-thumbnail', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const Candidate = require('../models/Candidate');
+    const uploadsDir = path.join(__dirname, '../uploads');
+    
+    // Find a video file
+    let videoPath = null;
+    if (fs.existsSync(uploadsDir)) {
+      const files = fs.readdirSync(uploadsDir);
+      const videoFile = files.find(file => 
+        file.toLowerCase().match(/\.(mov|mp4|avi|mkv|webm)$/i)
+      );
+      
+      if (videoFile) {
+        videoPath = path.join(uploadsDir, videoFile);
+      }
+    }
+    
+    if (!videoPath || !fs.existsSync(videoPath)) {
+      return res.status(404).json({
+        error: 'No video file found',
+        message: 'Upload a video first'
+      });
+    }
+    
+    console.log('🧪 Testing thumbnail generation for:', videoPath);
+    
+    // Generate thumbnail
+    const thumbnailResult = await videoProcessor.generateThumbnail(videoPath, 'test-thumb.jpg');
+    
+    console.log('🧪 Thumbnail result:', thumbnailResult);
+    
+    res.json({
+      success: true,
+      message: 'Thumbnail generated successfully',
+      videoPath: videoPath,
+      thumbnailPath: thumbnailResult.thumbnailPath,
+      processingTime: thumbnailResult.processingTime
+    });
+    
+  } catch (error) {
+    console.error('Test thumbnail error:', error);
+    res.status(500).json({
+      error: 'Thumbnail generation failed',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
 
 

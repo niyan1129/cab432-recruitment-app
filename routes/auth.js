@@ -6,12 +6,89 @@ const router = express.Router();
 
 // Predefined users for simple login system
 const PREDEFINED_USERS = {
-  'candidate': {
-    username: 'candidate',
-    email: 'candidate@demo.com',
+  'candidate1': {
+    username: 'candidate1',
+    email: 'candidate1@demo.com',
     password: '123456',
     role: 'candidate',
-    name: 'Demo Candidate'
+    name: 'Candidate 1'
+  },
+  'candidate2': {
+    username: 'candidate2',
+    email: 'candidate2@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 2'
+  },
+  'candidate3': {
+    username: 'candidate3',
+    email: 'candidate3@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 3'
+  },
+  'candidate4': {
+    username: 'candidate4',
+    email: 'candidate4@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 4'
+  },
+  'candidate5': {
+    username: 'candidate5',
+    email: 'candidate5@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 5'
+  },
+  'candidate6': {
+    username: 'candidate6',
+    email: 'candidate6@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 6'
+  },
+  'candidate7': {
+    username: 'candidate7',
+    email: 'candidate7@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 7'
+  },
+  'candidate8': {
+    username: 'candidate8',
+    email: 'candidate8@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 8'
+  },
+  'candidate9': {
+    username: 'candidate9',
+    email: 'candidate9@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 9'
+  },
+  'candidate10': {
+    username: 'candidate10',
+    email: 'candidate10@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 10'
+  },
+  'candidate11': {
+    username: 'candidate11',
+    email: 'candidate11@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 11'
+  },
+  'candidate12': {
+    username: 'candidate12',
+    email: 'candidate12@demo.com',
+    password: '123456',
+    role: 'candidate',
+    name: 'Candidate 12'
   },
   'hr': {
     username: 'hr',

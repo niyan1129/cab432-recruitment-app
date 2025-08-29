@@ -2,13 +2,21 @@ const express = require('express');
 const Candidate = require('../models/Candidate');
 const { requireHR } = require('../middleware/auth');
 const path = require('path');
+const candidateAnalyzer = require('../services/candidateAnalyzer');
 
 const router = express.Router();
 
 // Get all candidates (for HR to review)
 router.get('/candidates', requireHR, async (req, res) => {
   try {
-    const { status, page = 1, limit = 10, search } = req.query;
+    const { 
+      status, 
+      page = 1, 
+      limit = 5,  // 默认每页5个
+      search,
+      sort = 'hasVideo',  // 支持视频状态和评分排序
+      order = 'desc'  // 默认有视频的在前
+    } = req.query;
     
     // Build query
     const query = {};
@@ -26,37 +34,138 @@ router.get('/candidates', requireHR, async (req, res) => {
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
+    // Build sort options - support video status and score sorting
+    let sortOptions = {};
+    if (sort === 'hasVideo') {
+      // Sort by video availability - use a more reliable field
+      if (order === 'desc') {
+        // Has Video First: sort by video existence (null values last)
+        sortOptions = { 'video.originalPath': -1 };
+        console.log('🔀 Sorting: Has Video First (desc)');
+      } else {
+        // No Video First: sort by video existence (null values first)
+        sortOptions = { 'video.originalPath': 1 };
+        console.log('🔀 Sorting: No Video First (asc)');
+      }
+    } else if (sort === 'score') {
+      // Score sorting will be handled after analysis calculation
+      sortOptions = null;
+      console.log('🔀 Sorting: By Score (' + order + ')');
+    } else {
+      // Default sort by creation date desc
+      sortOptions = { createdAt: -1 };
+      console.log('🔀 Sorting: Default by creation date');
+    }
+    
+    console.log('🔀 Sort options:', sortOptions);
+    console.log('🔀 Requested sort:', sort, 'order:', order);
+    
     // Get candidates
-    const candidates = await Candidate.find(query)
-      .populate('user', 'email createdAt')
-      .select('-video.originalPath -video.processedPath') // Don't expose file paths
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    let candidates;
+    
+    if (sort === 'hasVideo') {
+      // For video sorting, we need to get all candidates first to sort properly
+      candidates = await Candidate.find(query)
+        .populate('user', 'email createdAt');
+      
+      // Sort by video availability manually
+      candidates.sort((a, b) => {
+        const aHasVideo = !!(a.video?.originalPath || (a.video?.qualities && a.video.qualities.length > 0));
+        const bHasVideo = !!(b.video?.originalPath || (b.video?.qualities && b.video.qualities.length > 0));
+        
+        if (order === 'desc') {
+          // Has Video First: true values first
+          return bHasVideo - aHasVideo;
+        } else {
+          // No Video First: false values first
+          return aHasVideo - bHasVideo;
+        }
+      });
+      
+      // Apply pagination after sorting
+      candidates = candidates.slice(skip, skip + parseInt(limit));
+    } else if (sort === 'score') {
+      // For score sorting, get all candidates first, analyze, then sort
+      candidates = await Candidate.find(query)
+        .populate('user', 'email createdAt');
+      
+      // Calculate scores for all candidates
+      const candidatesWithScores = candidates.map(candidate => {
+        const analysis = candidateAnalyzer.analyzeCandidate(candidate);
+        return {
+          candidate,
+          score: analysis.totalScore
+        };
+      });
+      
+      // Sort by score
+      candidatesWithScores.sort((a, b) => {
+        if (order === 'desc') {
+          return b.score - a.score; // High to low
+        } else {
+          return a.score - b.score; // Low to high
+        }
+      });
+      
+      // Extract candidates and apply pagination
+      candidates = candidatesWithScores
+        .slice(skip, skip + parseInt(limit))
+        .map(item => item.candidate);
+    } else {
+      // For other sorting, use database sorting
+      candidates = await Candidate.find(query)
+        .populate('user', 'email createdAt')
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(parseInt(limit));
+    }
 
     // Get total count for pagination
     const total = await Candidate.countDocuments(query);
 
-    // Format response
-    const formattedCandidates = candidates.map(candidate => ({
-      id: candidate._id,
-      fullName: candidate.fullName,
-      phone: candidate.phone,
-      applicationStatus: candidate.applicationStatus,
-      hasVideo: !!candidate.video?.originalPath,
-      videoProcessed: candidate.video?.isProcessed || false,
-      videoStatus: candidate.video?.processingStatus || 'pending',
-      videoDuration: candidate.video?.duration || null,
-      hasThumbnail: !!candidate.video?.thumbnailPath,
-      availableQualities: (candidate.video?.qualities || []).filter(q => q.isReady).map(q => q.name),
-      cpuIntensity: candidate.video?.cpuIntensity || 'UNKNOWN',
-      submittedAt: candidate.createdAt,
-      updatedAt: candidate.updatedAt,
-      reviewCount: candidate.hrReviews?.length || 0,
-      averageRating: candidate.hrReviews?.length > 0 
-        ? (candidate.hrReviews.reduce((sum, review) => sum + (review.rating || 0), 0) / candidate.hrReviews.length).toFixed(1)
-        : null
-    }));
+    // Format response with Custom Processing analysis
+    const formattedCandidates = candidates.map(candidate => {
+      // Debug: Check duration data
+      console.log(`🐛 Candidate ${candidate.fullName} video duration:`, candidate.video?.duration);
+      
+      // Apply custom processing analysis to each candidate
+      const analysis = candidateAnalyzer.analyzeCandidate(candidate);
+      
+      return {
+        id: candidate._id,
+        fullName: candidate.fullName,
+        phone: candidate.phone,
+        applicationStatus: candidate.applicationStatus,
+        hasVideo: !!(candidate.video?.originalPath || (candidate.video?.qualities && candidate.video.qualities.length > 0)),
+        videoProcessed: candidate.video?.isProcessed || false,
+        videoStatus: candidate.video?.processingStatus || 'pending',
+        videoDuration: candidate.video?.duration || null,
+        hasThumbnail: !!candidate.video?.thumbnailPath,
+        availableQualities: (candidate.video?.qualities || []).filter(q => q.isReady).map(q => q.name),
+        cpuIntensity: candidate.video?.cpuIntensity || 'UNKNOWN',
+        submittedAt: candidate.createdAt,
+        updatedAt: candidate.updatedAt,
+        reviewCount: candidate.hrReviews?.length || 0,
+        averageRating: candidate.hrReviews?.length > 0 
+          ? (candidate.hrReviews.reduce((sum, review) => sum + (review.rating || 0), 0) / candidate.hrReviews.length).toFixed(1)
+          : null,
+        
+        // CUSTOM PROCESSING: Add analysis scores
+        analysis: {
+          totalScore: analysis.totalScore,
+          grade: analysis.grade,
+          recommendation: analysis.recommendation,
+          profileScore: analysis.breakdown.profile.score,
+          videoScore: analysis.breakdown.video.score,
+          strengths: analysis.strengths,
+          hasPhone: !!candidate.phone,
+          hasVideo: !!(candidate.video?.originalPath),
+          completenessLevel: analysis.totalScore >= 90 ? 'excellent' : 
+                           analysis.totalScore >= 70 ? 'good' : 
+                           analysis.totalScore >= 50 ? 'fair' : 'poor'
+        }
+      };
+    });
 
     res.json({
       success: true,
@@ -69,7 +178,9 @@ router.get('/candidates', requireHR, async (req, res) => {
       },
       filters: {
         status: status || 'all',
-        search: search || ''
+        search: search || '',
+        sort: sort || 'hasVideo',
+        order: order || 'desc'
       }
     });
 
@@ -111,7 +222,7 @@ router.get('/candidates/:id', requireHR, async (req, res) => {
         joinedAt: candidate.user.createdAt
       },
       video: {
-        hasVideo: !!candidate.video?.originalPath,
+        hasVideo: !!(candidate.video?.originalPath || (candidate.video?.qualities && candidate.video.qualities.length > 0)),
         originalName: candidate.video?.originalName,
         size: candidate.video?.size,
         mimeType: candidate.video?.mimeType,
@@ -336,9 +447,11 @@ router.get('/candidates/:id/video', requireHR, async (req, res) => {
       );
       
       if (qualityVideo) {
-        videoPath = qualityVideo.filePath;
+        // Build full path to processed video
+        videoPath = path.join(__dirname, '..', 'uploads', 'processed', qualityVideo.filePath);
         selectedQuality = qualityVideo.name;
         console.log(`📺 Serving ${selectedQuality} quality video for candidate ${candidateId}`);
+        console.log(`📁 Full path: ${videoPath}`);
       }
     }
 
@@ -360,9 +473,11 @@ router.get('/candidates/:id/video', requireHR, async (req, res) => {
           });
 
         if (availableQualities.length > 0) {
-          videoPath = availableQualities[0].filePath;
+          // Build full path to processed video
+          videoPath = path.join(__dirname, '..', 'uploads', 'processed', availableQualities[0].filePath);
           selectedQuality = availableQualities[0].name;
           console.log(`📺 Serving best available quality ${selectedQuality} for candidate ${candidateId}`);
+          console.log(`📁 Full path: ${videoPath}`);
         } else {
           // Fall back to original
           videoPath = candidate.video.originalPath;
@@ -433,6 +548,262 @@ router.get('/candidates/:id/video', requireHR, async (req, res) => {
     
     res.status(500).json({
       error: 'Failed to stream video',
+      message: error.message
+    });
+  }
+});
+
+// Delete candidate profile
+router.delete('/candidates/:id', requireHR, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const candidate = await Candidate.findById(id);
+    if (!candidate) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+
+    // Delete associated video files if they exist
+    if (candidate.video) {
+      try {
+        // Delete original video
+        if (candidate.video.originalPath && fs.existsSync(candidate.video.originalPath)) {
+          fs.unlinkSync(candidate.video.originalPath);
+        }
+        
+        // Delete processed qualities
+        if (candidate.video.qualities) {
+          candidate.video.qualities.forEach(quality => {
+            if (quality.filePath && fs.existsSync(quality.filePath)) {
+              fs.unlinkSync(quality.filePath);
+            }
+          });
+        }
+        
+        // Delete thumbnail
+        if (candidate.video.thumbnailPath && fs.existsSync(candidate.video.thumbnailPath)) {
+          fs.unlinkSync(candidate.video.thumbnailPath);
+        }
+      } catch (fileError) {
+        console.error('Error deleting video files:', fileError);
+        // Continue with candidate deletion even if file deletion fails
+      }
+    }
+
+    // Delete candidate record
+    await Candidate.findByIdAndDelete(id);
+    
+    res.json({
+      success: true,
+      message: 'Candidate profile deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Delete candidate error:', error);
+    res.status(500).json({
+      error: 'Failed to delete candidate',
+      message: error.message
+    });
+  }
+});
+
+// Update candidate profile (HR can update name and add notes)
+router.put('/candidates/:id', requireHR, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fullName, notes } = req.body;
+    
+    const candidate = await Candidate.findById(id);
+    if (!candidate) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+
+    // Update fields if provided
+    if (fullName !== undefined) {
+      candidate.fullName = fullName;
+    }
+    
+    if (notes !== undefined) {
+      candidate.notes = notes;
+    }
+
+    await candidate.save();
+    
+    res.json({
+      success: true,
+      message: 'Candidate profile updated successfully',
+      candidate: {
+        id: candidate._id,
+        fullName: candidate.fullName,
+        phone: candidate.phone,
+        notes: candidate.notes,
+        hasVideo: !!(candidate.video?.originalPath || (candidate.video?.qualities && candidate.video.qualities.length > 0)),
+        applicationStatus: candidate.applicationStatus
+      }
+    });
+    
+  } catch (error) {
+    console.error('Update candidate error:', error);
+    res.status(500).json({
+      error: 'Failed to update candidate',
+      message: error.message
+    });
+  }
+});
+
+// CUSTOM PROCESSING: Individual candidate analysis 
+router.get('/candidates/:id/analysis', requireHR, async (req, res) => {
+  try {
+    const candidateId = req.params.id;
+    const candidate = await Candidate.findById(candidateId);
+    
+    if (!candidate) {
+      return res.status(404).json({
+        error: 'Candidate not found'
+      });
+    }
+    
+    // Debug: Check duration data in analysis endpoint  
+    console.log(`🐛 Analysis endpoint - Candidate ${candidate.fullName} video duration:`, candidate.video?.duration);
+    
+    // Use custom processing algorithm to analyze candidate
+    const analysis = candidateAnalyzer.analyzeCandidate(candidate);
+    
+    res.json({
+      success: true,
+      candidate: {
+        id: candidate._id,
+        fullName: candidate.fullName,
+        phone: candidate.phone,
+        applicationStatus: candidate.applicationStatus
+      },
+      analysis: analysis,
+      processingNote: 'Generated by custom recruitment analysis algorithms'
+    });
+    
+  } catch (error) {
+    console.error('Candidate analysis error:', error);
+    res.status(500).json({
+      error: 'Analysis failed',
+      message: error.message
+    });
+  }
+});
+
+// TEMP: Fix missing duration for existing videos  
+router.post('/fix-duration/:id', requireHR, async (req, res) => {
+  try {
+    const candidateId = req.params.id;
+    const candidate = await Candidate.findById(candidateId);
+    
+    if (!candidate || !candidate.video?.originalPath) {
+      return res.status(404).json({
+        error: 'Candidate or video not found'
+      });
+    }
+    
+    // Get video info to extract duration
+    const videoProcessor = require('../services/videoProcessor');
+    const videoInfo = await videoProcessor.getVideoInfo(candidate.video.originalPath);
+    
+    // Save duration to database
+    candidate.video.duration = videoInfo.duration;
+    await candidate.save();
+    
+    console.log(`✅ Fixed duration for ${candidate.fullName}: ${videoInfo.duration} seconds`);
+    
+    res.json({
+      success: true,
+      message: `Duration updated: ${videoInfo.duration} seconds`,
+      candidateName: candidate.fullName,
+      duration: videoInfo.duration
+    });
+    
+  } catch (error) {
+    console.error('Fix duration error:', error);
+    res.status(500).json({
+      error: 'Failed to fix duration',
+      message: error.message
+    });
+  }
+});
+
+// TEMP: Fix duration for ALL candidates with missing duration
+router.post('/fix-all-durations', requireHR, async (req, res) => {
+  try {
+    const videoProcessor = require('../services/videoProcessor');
+    
+    // Find all candidates with video but missing duration
+    const candidates = await Candidate.find({
+      'video.originalPath': { $exists: true },
+      $or: [
+        { 'video.duration': { $exists: false } },
+        { 'video.duration': null },
+        { 'video.duration': 0 }
+      ]
+    });
+    
+    console.log(`🔧 Found ${candidates.length} candidates needing duration fix`);
+    
+    const results = [];
+    let fixed = 0;
+    let failed = 0;
+    
+    for (const candidate of candidates) {
+      try {
+        console.log(`🔧 Fixing duration for: ${candidate.fullName}`);
+        
+        // Check if video file exists
+        const fs = require('fs');
+        if (!fs.existsSync(candidate.video.originalPath)) {
+          console.log(`⚠️ Video file not found for ${candidate.fullName}: ${candidate.video.originalPath}`);
+          results.push({
+            name: candidate.fullName,
+            status: 'failed',
+            error: 'Video file not found'
+          });
+          failed++;
+          continue;
+        }
+        
+        // Get video duration
+        const videoInfo = await videoProcessor.getVideoInfo(candidate.video.originalPath);
+        
+        // Update database
+        candidate.video.duration = videoInfo.duration;
+        await candidate.save();
+        
+        console.log(`✅ Fixed ${candidate.fullName}: ${videoInfo.duration} seconds`);
+        results.push({
+          name: candidate.fullName,
+          status: 'success',
+          duration: videoInfo.duration
+        });
+        fixed++;
+        
+      } catch (error) {
+        console.error(`❌ Failed to fix ${candidate.fullName}:`, error.message);
+        results.push({
+          name: candidate.fullName,
+          status: 'failed',
+          error: error.message
+        });
+        failed++;
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Fixed ${fixed} candidates, ${failed} failed`,
+      fixed,
+      failed,
+      results
+    });
+    
+  } catch (error) {
+    console.error('Fix all durations error:', error);
+    res.status(500).json({
+      error: 'Failed to fix durations',
       message: error.message
     });
   }

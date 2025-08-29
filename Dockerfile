@@ -1,8 +1,8 @@
 # Use Node.js 18 LTS Alpine for smaller image size
 FROM node:18-alpine
 
-# Install FFmpeg for video processing
-RUN apk add --no-cache ffmpeg
+# Install FFmpeg and curl for video processing and health checks
+RUN apk add --no-cache ffmpeg curl
 
 # Set working directory
 WORKDIR /usr/src/app
